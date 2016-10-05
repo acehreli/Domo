@@ -1,0 +1,38 @@
+Scripts
+-------
+
+This directory contains:
+
+* `git_utils.py`:     A utility module.
+* `git_keywords.py`:  A git pre-commit script.
+* Other stuff:        Other stuff.
+
+The Python scripts are used to perform keyword substitution on program files
+as they are committed to the repository, adding or updating the information
+associated with specific keywords.
+
+We use keywords in its source files to help keep track of what happened 
+when and who did it.  Yes, git also provides that information (and in 
+greater detail), but if'n all you've got is a copy of a file outside of 
+a repository then you're out of context and out of luck.  Keyword 
+substitution mitigates that problem (a little).
+
+Setting up your repository to support keyword substitution:
+
+1. Make sure `git_keywords.py` is executable.
+
+2. In the `<repository>/.git/hooks` directory:
+
+ $ ln -s ../../scripts/git_keywords.py pre-commit
+
+3. Make sure that the `<repository>/.gitattributes` file contains something
+   that looks sort of like this:
+
+ *.d kwsub=true
+ 0.README kwsub=true
+
+4. Make sure that your username and e'mail address are correctly assigned in
+   the `<repository>/.git/config` file.  If you are using a GitHub account,
+   your e'mail address should probably be the address you're using on GitHub.
+____
+$Id: 0.README; 2016-10-05 11:38:43 -0500; Christopher R. Hertel$
