@@ -1,5 +1,6 @@
 Domo
 ====
+
 Domo is an implementation of the NBT transport protocol, written in D.
 
 Why
@@ -12,7 +13,7 @@ What
 NBT is the "**N**et**B**IOS over **T**CP" virtual LAN transport protocol 
 suite.
 
-__NetBIOS__ is an API.  It __is not, was not, we hope won't ever be__, a 
+__NetBIOS__ is an API.  It __is not, was not, and must never be__, a 
 protocol.  Because it is just an API, it can be (and has been) 
 implemented on top of a variety of different network protocol stacks.  
 Applications that call into the NetBIOS API continue to work no matter 
@@ -57,6 +58,6 @@ All of the references listed below are available online.
             STD 19, RFC 1002, March 1987,
             http://www.ietf.org/rfc/rfc1002.txt
 
-Timestamp
----------
-$Id: 0.README; 2016-10-05 11:36:33 -0500; Christopher R. Hertel$
+____
+$Id: 0.README; 2016-10-05 11:53:46 -0500; Christopher R. Hertel$
+____
