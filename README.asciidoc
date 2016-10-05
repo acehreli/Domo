@@ -4,41 +4,42 @@ Domo is an implementation of the NBT transport protocol, written in D.
 
 Why
 ---
-My goal is to learn a little about the D language, but this code may also
-be useful to others.
+My goal is to learn a little about the D language, but this code may 
+also be useful to others.
 
 What
 ----
-NBT is the "**N**et**B**IOS over **T**CP" virtual LAN transport protocol
+NBT is the "**N**et**B**IOS over **T**CP" virtual LAN transport protocol 
 suite.
 
-__NetBIOS__ is an API.  It __is not, was not, we hope won't ever be__, a
-protocol.  Because it is just an API, it can be (and has been) implemented
-on top of a variety of different network protocol stacks.  Applications
-that call into the NetBIOS API continue to work no matter which underlying
-network has been deployed.  This behavior was a big win back in the 80's,
-when there were dozens of protocol suites from which to choose.
+__NetBIOS__ is an API.  It __is not, was not, we hope won't ever be__, a 
+protocol.  Because it is just an API, it can be (and has been) 
+implemented on top of a variety of different network protocol stacks.  
+Applications that call into the NetBIOS API continue to work no matter 
+which underlying network has been deployed.  This behavior was a big win 
+back in the 80's, when there were dozens of protocol suites from which 
+to choose.
 
-NBT is an implementation of the __semantics__ of the NetBIOS API on top of
-__TCP__ and __UDP__.  It is specified in [RFC1001] and [RFC1002].  A
-detailed description and implementer's guide is given in [IMPCIFS].  The
-latter also includes descriptions of errors in both the specifications and
-in popular implementations.
+NBT is an implementation of the __semantics__ of the NetBIOS API on top 
+of __TCP__ and __UDP__.  It is specified in [RFC1001] and [RFC1002].  A 
+detailed description and implementer's guide is given in [IMPCIFS].  The 
+latter also includes descriptions of errors in both the specifications 
+and in popular implementations.
 
-NBT has been described as ++deprecated++ for over a decade, but it is
-still supported on many platforms and is in common use.  It is also
+NBT has been described as ++deprecated++ for over a decade, but it is 
+still supported on many platforms and is in common use.  It is also 
 relatively easy to implement and test.
 
 References
 ----------
 All of the references listed below are available online.
 
-[Carnaval]:: The link:/ubiqx-org/Carnaval[Carnaval] project includes an NBT
-             implementation in Python.
+[Carnaval]:: The link:/ubiqx-org/Carnaval[Carnaval] project includes an 
+             NBT implementation in Python.
 
-[IMPCIFS]:: Hertel, Christopher R., "Implementing CIFS - The Common Internet
-            File System", Prentice Hall, August 2003, ISBN:013047116X,
-            http://www.ubiqx.org/cifs/
+[IMPCIFS]:: Hertel, Christopher R., "Implementing CIFS - The Common 
+            Internet File System", Prentice Hall, August 2003, 
+            ISBN:013047116X, http://www.ubiqx.org/cifs/
 
 [MS-NBTE]:: Microsoft Corporation, "NetBIOS over TCP (NBT) Extensions",
             https://msdn.microsoft.com/en-us/library/dd891412.aspx
@@ -46,14 +47,15 @@ All of the references listed below are available online.
 [NBGUIDE]:: Winston, Gavin, "NetBIOS Specification", 1998-2012,
             http://www.netbiosguide.com/
 
-[RFC1001]:: Network Working Group, "Protocol Standard for a NetBIOS Service
-            on a TCP/UDP Transport: Concepts and Methods", STD 19, RFC 1001,
-            March 1987, http://www.ietf.org/rfc/rfc1001.txt
+[RFC1001]:: Network Working Group, "Protocol Standard for a NetBIOS 
+            Service on a TCP/UDP Transport: Concepts and Methods", STD 
+            19, RFC 1001, March 1987,
+            http://www.ietf.org/rfc/rfc1001.txt
 
-[RFC1002]:: Network Working Group, "Protocol Standard for a NetBIOS Service
-            on a TCP/UDP Transport: Detailed Specifications", STD 19, RFC
-            1002, March 1987, http://www.ietf.org/rfc/rfc1002.txt
-
+[RFC1002]:: Network Working Group, "Protocol Standard for a NetBIOS 
+            Service on a TCP/UDP Transport: Detailed Specifications", 
+            STD 19, RFC 1002, March 1987,
+            http://www.ietf.org/rfc/rfc1002.txt
 
 Timestamp
 ---------

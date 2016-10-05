@@ -1,3 +1,5 @@
+# Includes Windows file name extensions for reasons unfathomable.
+
 # Compiled Object files
 *.o
 *.obj
