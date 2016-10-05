@@ -1,4 +1,5 @@
-# Includes Windows file name extensions for reasons unfathomable.
+# This is based on the stock .gitignore for the D language, which
+# includes Windows file name extensions for reasons unfathomable.
 
 # Compiled Object files
 *.o
@@ -24,3 +25,7 @@ docs/
 
 # Code coverage
 *.lst
+
+# Ignore compiled Python extensions (scripts)
+*.pyc
+*.pyo
