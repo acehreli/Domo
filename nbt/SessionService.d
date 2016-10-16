@@ -29,20 +29,30 @@
  * Date:      11 October 2016
  * License:   GNU Lesser General Public License version 3
  * Standards: IETF RFC1001 and RFC1002 (STD#19)
- * Brief:     Support for the NBT Session Service
+ * Brief:     NBT Session Service
  *
  * Details:
  *  The NBT Session Service provides for the establishment and maintenance
  *  of NetBIOS sessions over TCP, including the framing of NetBIOS session
  *  messages.
  *
+ *  The Session Service is probably the simplest aspect of the NBT
+ *  transport suite.  There are only six possible messages, most of which
+ *  have a fixed length:
+ *  <ul>
+ *    <li>Session Message (4 octet header + variable length user data)
+ *    <li>Session Request (72 octets)
+ *    <li>Positive Session Response (4 octets)
+ *    <li>Negative Session Response (5 octets)
+ *    <li>Retarget Session Response (10 octets)
+ *    <li>Session Keepalive (4 octets)
+ *  </ul>
  *  NBT Session Service messages all have the same general format.  They
  *  all start with a 4-octet header followed by 0 or more octets of
  *  additional data.  The number of octets of additional data is given in
  *  the length field.
  *
- *  The header is given in Network Byte Order, and is split into
- *  three subfields:
+ *  The header is in Network Byte Order, and is split into three subfields:
  *  <ul>
  *    <li>Type (8 bits)
  *    <li>Flags (7 bits)
@@ -52,12 +62,12 @@
  *  lowest order bit is a "length extension" which is used as the high-
  *  order bit of the Length field.  None of the other Flags bits have
  *  ever been defined.  It makes sense, therefore, to view the Length
- *  field as being 17 bytes, and the Flags field as "Reserved, Must Be
- *  Zero".
+ *  field as being 17 bytes, and the first 7 bits of the Flags field as
+ *  "Reserved, Must Be Zero".
  */
 module SessionService;
 
-// Enumerated Constants
+/* Enumerated Constants ----------------------------------------------------- */
 
 // Protocol Details
 enum ushort SS_PORT = 139;  /// Default Session Service TCP listener port.
@@ -82,5 +92,13 @@ enum:ubyte
   SS_ERR_INSUFFICIENT  = 0x83,  /// Insufficient Resources
   SS_ERR_UNSPECIFIED   = 0x8F   /// Unspecified Error
   };
+
+
+/* Functions ---------------------------------------------------------------- */
+
+ulong extractLength( ubyte a[4] )
+  {
+  return( (ulong)(((a[1] & 0x01) * 0x010000) + (a[2] * 0x0100) + a[3]) );
+  } /* extractLength */
 
 /* ================================= la fin ================================= */
