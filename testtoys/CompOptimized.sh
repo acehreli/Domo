@@ -1,5 +1,7 @@
 #!/bin/bash
 #
+# $ID$
+#
 ProgName="BigEndianExtraction"
 #
 gdc ${ProgName}.d -o ${ProgName}

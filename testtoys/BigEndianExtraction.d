@@ -4,7 +4,14 @@
  *  mechanisms for extacting a 17-bit LENGTH value from a big-endian
  *  byte order 32-bit input.  The operations are repeated multiple
  *  times on order to generate performance comparisons.
+ *
+ *  $ID$
  */
+
+version( LittleEndian )
+  {
+  import core.bitop : bswap;
+  }
 
 enum elementCount = 100_000;
 enum testCount    =  10_000;
@@ -25,8 +32,6 @@ uint extractLength_bswap( ubyte[4] a ) // @nogc pure nothrow
   {
   version( LittleEndian )
     {
-    import core.bitop : bswap;
-
     return( bswap( *(cast(uint*)(a.ptr)) ) & 0x0001FFFF );
     }
   else
@@ -53,10 +58,9 @@ void main()
   {
   import std.stdio     : writefln;
   import std.datetime  : benchmark, msecs;
-  import std.algorithm : map;
 
   ubyte[4][] testArrays;
-  testArrays.length = elementCount;
+  testArrays.length   = elementCount;
   ulong overallResult = 0;
 
   auto test( alias func )()
