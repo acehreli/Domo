@@ -5,7 +5,7 @@
  *  byte order 32-bit input.  The operations are repeated multiple
  *  times on order to generate performance comparisons.
  *
- *  $ID$
+ *  $Id: BigEndianExtraction.d; 2016-10-25 22:36:41 -0500; Christopher R. Hertel$
  */
 
 version( LittleEndian )
