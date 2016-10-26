@@ -28,6 +28,7 @@
  * Authors:   Christopher R. Hertel
  * Date:      11 October 2016
  * License:   GNU Lesser General Public License version 3
+ * Version:   $Id: SessionService.d; 2016-10-25 22:03:38 -0500; Christopher R. Hertel$
  * Standards: IETF RFC1001 and RFC1002 (STD#19)
  * Brief:     NBT Session Service
  *
@@ -62,10 +63,19 @@
  *  lowest order bit is a "length extension" which is used as the high-
  *  order bit of the Length field.  None of the other Flags bits have
  *  ever been defined.  It makes sense, therefore, to view the Length
- *  field as being 17 bytes, and the first 7 bits of the Flags field as
+ *  field as being 17 bits, and the first 7 bits of the Flags field as
  *  "Reserved, Must Be Zero".
  */
 module SessionService;
+
+
+/* Imports ------------------------------------------------------------------ */
+
+version( LittleEndian )
+  {
+  import core.bitop : bswap;
+  }
+
 
 /* Enumerated Constants ----------------------------------------------------- */
 
@@ -83,7 +93,7 @@ enum:ubyte
   SS_SESSION_KEEPALIVE = 0x85   /// NBT session keep-alive.
   };
 
-// Negative Respoinse Error Codes
+// Negative Response Error Codes
 enum:ubyte
   {
   SS_ERR_NOT_LISTENING = 0x80,  /// Not Listening _On Called_ Name
@@ -93,12 +103,76 @@ enum:ubyte
   SS_ERR_UNSPECIFIED   = 0x8F   /// Unspecified Error
   };
 
+// Subfield Masks
+private enum ubyte flgMask = 0xFE;        // FLAGS subfield mask (octet).
+private enum uint  lenMask = 0x0001FFFF;  // LENGTH subfield mask (32-bit).
+
 
 /* Functions ---------------------------------------------------------------- */
 
-ulong extractLength( ubyte a[4] )
+/** Extract the FLAGS bits from the NBT Session Service header.
+ *
+ * Input: hdr - An array of four octets, representing an NBT Session
+ *              Service header as it was received from the wire.
+ *
+ * Output:  A single octet with just the FLAGS bits expressed.
+ *          A non-zero return value should be considered an error, since
+ *          none of the FLAGS bits are actually defined (but see the
+ *          Notes, below).
+ *
+ * Notes:   Despite the definition given in RFC1002, this code views the
+ *          FLAGS field as being only 7 bits wide, while the LENGTH field
+ *          is viewed as being 17 bits.  This redefinition of these two
+ *          fields is logically consistent with the original definition
+ *          given in the RFC, but is conceptually simper.
+ */
+ubyte getHdrFlags( ubyte[4] hdr )
   {
-  return( (ulong)(((a[1] & 0x01) * 0x010000) + (a[2] * 0x0100) + a[3]) );
-  } /* extractLength */
+  return( hdr[1] & flgMask );
+  } /* getHdrFlags */
+
+/** Extract the LENGTH from the NBT Session Service Header.
+ *
+ * Input: hdr - An array of four octets, representing the NBT Session
+ *              Service header as it was received from the wire.
+ *
+ * Output:  The value of the header LENGTH field, as an unsigned 32-bit
+ *          integer.
+ */
+ulong getHdrLen( ubyte[4] hdr )
+  {
+  version( LittleEndian )
+    {
+    return( bswap( *(cast(uint*)(hdr.ptr)) ) & lenMask );
+    }
+  else
+    {
+    return( *(cast(uint*)(hdr.ptr) & lenMask) );
+    }
+  } /* getHdrLen */
+
+/** Compose a correctly formatted Session Message header.
+ *
+ * Input:   bufrPtr - A pointer to a buffer (at least 4 octets in length)
+ *                    into which the NBT Session Message header will be
+ *                    written.
+ *          msgLen  - The length value to be encoded.  This value must be
+ *                    in the range 0..131071 (2^17 - 1).
+ *
+ * Errors:  AssertionError  - Thrown if <msgLen> is greater than 0x0001FFFF.
+ */
+void msgHdr( ubyte *bufrPtr, uint msgLen )
+  {
+  // Messages must not exceed the NBT message size limit.
+  assert( msgLen == (msgLen & lenMask), "Maximum NBT message size exceeded." );
+  // Ensure Network Byte Order.
+  version( LittleEndian )
+    {
+    msgLen = bswap( msgLen );
+    }
+
+  // Copy the length bytes into <bufr>.
+  *cast(uint *)(bufrPtr) = msgLen;
+  } /* msgHdr */
 
 /* ================================= la fin ================================= */
