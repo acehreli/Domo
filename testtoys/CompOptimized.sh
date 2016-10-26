@@ -32,7 +32,6 @@ gdc -O3 -fno-bounds-check -finline-functions ${ProgName}.d -o ${ProgName}
 echo "-O3 Optimization +(no bounds check, inline)"
 ./${ProgName}
 
-
 # Strip ${ProgName}
 echo "Results of strip(1):"
 echo -n "Before: "

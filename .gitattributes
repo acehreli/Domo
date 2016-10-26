@@ -1,2 +1,3 @@
 *.d kwsub=true
+testtoys/*.sh kwsub = true
 0.README kwsub=true

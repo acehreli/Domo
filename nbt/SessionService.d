@@ -28,9 +28,10 @@
  * Authors:   Christopher R. Hertel
  * Date:      11 October 2016
  * License:   GNU Lesser General Public License version 3
- * Version:   $Id: SessionService.d; 2016-10-25 22:03:38 -0500; Christopher R. Hertel$
  * Standards: IETF RFC1001 and RFC1002 (STD#19)
  * Brief:     NBT Session Service
+ * Version:
+ *    $Id: SessionService.d; 2016-10-25 22:03:38 -0500; Christopher R. Hertel$
  *
  * Details:
  *  The NBT Session Service provides for the establishment and maintenance
