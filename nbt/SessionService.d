@@ -26,12 +26,12 @@
  *//**
  * File:      SessionService.d
  * Authors:   Christopher R. Hertel
- * Date:      11 October 2016
+ * Date:      $Date: 2016-11-09 19:52:33 -0600$
  * License:   GNU Lesser General Public License version 3
  * Standards: IETF RFC1001 and RFC1002 (STD#19)
  * Brief:     NBT Session Service
  * Version:
- *    $Id: SessionService.d; 2016-10-25 22:03:38 -0500; Christopher R. Hertel$
+ *    $Id: SessionService.d; 2016-11-09 19:52:33 -0600; Christopher R. Hertel$
  *
  * Details:
  *  The NBT Session Service provides for the establishment and maintenance
@@ -143,20 +143,16 @@ ubyte getHdrFlags( ubyte[4] hdr )
 ulong getHdrLen( ubyte[4] hdr )
   {
   version( LittleEndian )
-    {
     return( bswap( *(cast(uint*)(hdr.ptr)) ) & lenMask );
-    }
   else
-    {
-    return( *(cast(uint*)(hdr.ptr) & lenMask) );
-    }
+    return( *(cast(uint*)(hdr.ptr)) & lenMask );
   } /* getHdrLen */
 
 /** Compose a correctly formatted Session Message header.
  *
  * Input:   bufrPtr - A pointer to a buffer (at least 4 octets in length)
  *                    into which the NBT Session Message header will be
- *                    written.
+ *                    written.<br>
  *          msgLen  - The length value to be encoded.  This value must be
  *                    in the range 0..131071 (2^17 - 1).
  *
@@ -171,9 +167,47 @@ void msgHdr( ubyte *bufrPtr, uint msgLen )
     {
     msgLen = bswap( msgLen );
     }
-
   // Copy the length bytes into <bufr>.
   *cast(uint *)(bufrPtr) = msgLen;
   } /* msgHdr */
+
+/* Test a string of octets (ubytes) to see if they match the pattern
+ * of an L1 encoded NBT name.
+ */
+private bool L1okay( ubyte[] name )
+  {
+  import std.algorithm : canFind;
+
+  // Ensure that we have a correctly encoded NBT name.
+  if( (name.length < 34) || ('\x20' != name[0]) || ('\0' != name[33]) )
+    return( false );
+  // Each character of <name>, except the first and last,
+  // must be in the range 'A'..'P'.
+  foreach( c; name[1..33] )
+    if( !( "ABCDEFGHIJKLMNOP".canFind( c ) ) )
+      return( false );
+  return( true );
+  } /* L1okay */
+
+/** Create an NBT Session Service Session Request message.
+ * Input:   CalledName  - The name of the NBT service to which the message
+ *                        is addressed.<br>
+ *          CallingName - The name of the NBT service or application that
+ *                        is sending the session request.
+ *
+ * Errors:  AssertError - Thrown if either of the input paramaters does
+ *                        not match the required format.
+ *
+ *  Output: A byte string.  The first four bytes are always
+ *          [0x81, 0, 0, 0x44].  The remaining 68 bytes are the given
+ *          Called and Calling names.  The total length of the output
+ *          will always be 72 bytes.
+ */
+ubyte[] SessionRequest( ubyte[] CalledName, ubyte[] CallingName )
+  {
+  assert( L1okay( CalledName ), "Malformed 'Called' Name" );
+  assert( L1okay( CallingName ), "Malformed 'Calling' Name" );
+  return( cast( ubyte[] ) "\x81\0\0\x44" + CalledName + CallingName );
+  } /* SessionRequest */
 
 /* ================================= la fin ================================= */
