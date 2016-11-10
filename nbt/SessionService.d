@@ -26,12 +26,12 @@
  *//**
  * File:      SessionService.d
  * Authors:   Christopher R. Hertel
- * Date:      $Date: 2016-11-09 19:52:33 -0600$
+ * Created:   11 October 2016
  * License:   GNU Lesser General Public License version 3
  * Standards: IETF RFC1001 and RFC1002 (STD#19)
- * Brief:     NBT Session Service
+ * Brief:     NBT Session Service tools
  * Version:
- *    $Id: SessionService.d; 2016-11-09 19:52:33 -0600; Christopher R. Hertel$
+ *    $Id: SessionService.d; 2016-11-10 09:09:12 -0600; Christopher R. Hertel$
  *
  * Details:
  *  The NBT Session Service provides for the establishment and maintenance
@@ -56,21 +56,34 @@
  *
  *  The header is in Network Byte Order, and is split into three subfields:
  *  <ul>
- *    <li>Type (8 bits)
- *    <li>Flags (7 bits)
- *    <li>Length (17 bits)
+ *    <li>TYPE (8 bits)
+ *    <li>FLAGS (7 bits)
+ *    <li>LENGTH (17 bits)
  *  </ul>
- *  In RFC1002, the Flags field is listed as being 8 bits wide, but the
- *  lowest order bit is a "length extension" which is used as the high-
- *  order bit of the Length field.  None of the other Flags bits have
- *  ever been defined.  It makes sense, therefore, to view the Length
- *  field as being 17 bits, and the first 7 bits of the Flags field as
- *  "Reserved, Must Be Zero".
+ *  In RFC1002, the FLAGS field is listed as being 8 bits wide, but the
+ *  lowest order bit is a "length extension", which is used as the high-
+ *  order bit of the LENGTH field.  None of the other FLAGS bits have
+ *  ever been defined, so it makes sense to view the LENGTH field as
+ *  being 17 bits wide.  The FLAGS field is then only 7 bits wide, and
+ *  all of the bits are "Reserved, Must Be Zero".
+ *  <pre>
+ *                         1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+ *     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    |      TYPE     |    FLAGS    |             LENGTH              |
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    |                                                               |
+ *    /               TRAILER (Packet Type Dependent)                 /
+ *    |                                                               |
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+</pre>
+ *  <hr>
  */
 module SessionService;
 
 
 /* Imports ------------------------------------------------------------------ */
+
+import std.array : join;
 
 version( LittleEndian )
   {
@@ -81,7 +94,7 @@ version( LittleEndian )
 /* Enumerated Constants ----------------------------------------------------- */
 
 // Protocol Details
-enum ushort SS_PORT = 139;  /// Default Session Service TCP listener port.
+enum ushort SS_PORT = 139;  /// Session Service TCP listener port (139).
 
 // Message Types
 enum:ubyte
@@ -97,12 +110,19 @@ enum:ubyte
 // Negative Response Error Codes
 enum:ubyte
   {
-  SS_ERR_NOT_LISTENING = 0x80,  /// Not Listening _On Called_ Name
-  SS_ERR_NOT_ANSWERING = 0x81,  /// Not Listening _For Calling_ Name
+  SS_ERR_NOT_LISTENING = 0x80,  /// Not Listening On Called Name
+  SS_ERR_NOT_ANSWERING = 0x81,  /// Not Listening For Calling Name
   SS_ERR_NOT_PRESENT   = 0x82,  /// Called Name Not Present
   SS_ERR_INSUFFICIENT  = 0x83,  /// Insufficient Resources
   SS_ERR_UNSPECIFIED   = 0x8F   /// Unspecified Error
   };
+
+// Fixed Session Messages
+/// The Positive Session Response message.
+enum ubyte[] SS_POSITIVE_RESPONSE_MSG = cast(ubyte[])"\x82\0\0\0";
+
+/// The Session Keep Alive message.
+enum ubyte[] SS_SESSION_KEEPALIVE_MSG = cast(ubyte[])"\x85\0\0\0";
 
 // Subfield Masks
 private enum ubyte flgMask = 0xFE;        // FLAGS subfield mask (octet).
@@ -113,19 +133,18 @@ private enum uint  lenMask = 0x0001FFFF;  // LENGTH subfield mask (32-bit).
 
 /** Extract the FLAGS bits from the NBT Session Service header.
  *
- * Input: hdr - An array of four octets, representing an NBT Session
- *              Service header as it was received from the wire.
+ *  Input:  hdr - An array of four octets, representing an NBT Session
+ *                Service header as it was received from the wire.
  *
- * Output:  A single octet with just the FLAGS bits expressed.
+ *  Output: A single ubyte value with just the FLAGS bits expressed.
  *          A non-zero return value should be considered an error, since
- *          none of the FLAGS bits are actually defined (but see the
- *          Notes, below).
+ *          none of the FLAGS bits are actually defined in RFC1002 (but
+ *          see the Notes, below).
  *
- * Notes:   Despite the definition given in RFC1002, this code views the
+ *  Notes:  Despite the definition given in RFC1002, this code views the
  *          FLAGS field as being only 7 bits wide, while the LENGTH field
- *          is viewed as being 17 bits.  This redefinition of these two
- *          fields is logically consistent with the original definition
- *          given in the RFC, but is conceptually simper.
+ *          is viewed as being 17 bits.  This is logically consistent with
+ *          the original definition given in the RFC, but it works better.
  */
 ubyte getHdrFlags( ubyte[4] hdr )
   {
@@ -134,11 +153,11 @@ ubyte getHdrFlags( ubyte[4] hdr )
 
 /** Extract the LENGTH from the NBT Session Service Header.
  *
- * Input: hdr - An array of four octets, representing the NBT Session
- *              Service header as it was received from the wire.
+ *  Input:  hdr - An array of four octets, representing the NBT Session
+ *                Service header as it was received from the wire.
  *
- * Output:  The value of the header LENGTH field, as an unsigned 32-bit
- *          integer.
+ *  Output: The value of the 17-bit header LENGTH field, as an unsigned
+ *          32-bit integer.
  */
 ulong getHdrLen( ubyte[4] hdr )
   {
@@ -179,7 +198,7 @@ private bool L1okay( ubyte[] name )
   import std.algorithm : canFind;
 
   // Ensure that we have a correctly encoded NBT name.
-  if( (name.length < 34) || ('\x20' != name[0]) || ('\0' != name[33]) )
+  if( (name.length != 34) || ('\x20' != name[0]) || ('\0' != name[33]) )
     return( false );
   // Each character of <name>, except the first and last,
   // must be in the range 'A'..'P'.
@@ -190,24 +209,43 @@ private bool L1okay( ubyte[] name )
   } /* L1okay */
 
 /** Create an NBT Session Service Session Request message.
- * Input:   CalledName  - The name of the NBT service to which the message
+ *  Input:  CalledName  - The name of the NBT service to which the message
  *                        is addressed.<br>
  *          CallingName - The name of the NBT service or application that
  *                        is sending the session request.
  *
- * Errors:  AssertError - Thrown if either of the input paramaters does
+ *  Errors: AssertError - Thrown if either of the input paramaters does
  *                        not match the required format.
  *
- *  Output: A byte string.  The first four bytes are always
- *          [0x81, 0, 0, 0x44].  The remaining 68 bytes are the given
- *          Called and Calling names.  The total length of the output
- *          will always be 72 bytes.
+ *  Output: An array of ubytes.
+ *          The first four bytes are always [0x81, 0, 0, 0x44].  The
+ *          remaining bytes are the given Called and Calling names.
+ *          The total length of the output should always be 72 bytes.
  */
 ubyte[] SessionRequest( ubyte[] CalledName, ubyte[] CallingName )
   {
+  static enum ubyte[] prefix = cast(ubyte[])"\x81\0\0\x44";
+
   assert( L1okay( CalledName ), "Malformed 'Called' Name" );
   assert( L1okay( CallingName ), "Malformed 'Calling' Name" );
-  return( cast( ubyte[] ) "\x81\0\0\x44" + CalledName + CallingName );
+  return( join( [ prefix, CalledName, CallingName ] ) );
   } /* SessionRequest */
+
+/** Create an NBT Session Service Negative Session Response message.
+ *  Input:  ErrCode - One of the five defined NBT Session Service error
+ *                    codes.  Any other value is silently replaced with
+ *                    SS_ERR_UNSPECIFIED.
+ *
+ *  Output: An array of five ubytes.  The first four bytes will always
+ *          be [ 0x83, 0, 0, 1 ].  The final byte will be the error code.
+ */
+ubyte[] NegativeResponse( ubyte errCode )
+  {
+  static enum ubyte[] prefix = cast(ubyte[])"\x83\0\0\x01";
+
+  if( errCode < 0x80 || errCode > 0x83 )
+    errCode = SS_ERR_UNSPECIFIED;
+  return( join( [ prefix, [errCode] ] ) );
+  } /* NegativeResponse */
 
 /* ================================= la fin ================================= */
