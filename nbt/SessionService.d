@@ -31,7 +31,7 @@
  * Standards: IETF RFC1001 and RFC1002 (STD#19)
  * Brief:     NBT Session Service tools
  * Version:
- *    $Id: SessionService.d; 2016-11-10 09:09:12 -0600; Christopher R. Hertel$
+ *    $Id: SessionService.d; 2016-11-12 00:36:30 -0600; Christopher R. Hertel$
  *
  * Details:
  *  The NBT Session Service provides for the establishment and maintenance
@@ -181,11 +181,11 @@ void msgHdr( ubyte *bufrPtr, uint msgLen )
   {
   // Messages must not exceed the NBT message size limit.
   assert( msgLen == (msgLen & lenMask), "Maximum NBT message size exceeded." );
+
   // Ensure Network Byte Order.
   version( LittleEndian )
-    {
     msgLen = bswap( msgLen );
-    }
+
   // Copy the length bytes into <bufr>.
   *cast(uint *)(bufrPtr) = msgLen;
   } /* msgHdr */
@@ -248,4 +248,28 @@ ubyte[] NegativeResponse( ubyte errCode )
   return( join( [ prefix, [errCode] ] ) );
   } /* NegativeResponse */
 
-/* ================================= la fin ================================= */
+/** Create an NBT Session Service Retarget Response message.
+ *  Input:  IPv4addr  - A four byte array; an IP address.
+ *                      This is the IP address to which the calling node
+ *                      will be redirected.  Note that NBT is does not
+ *                      provide support for IPv6.
+ *          PortNum   - The TCP port to which the calling node will be
+ *                      redirected.
+ *
+ *  Output: An array of ten ubytes.  The first four bytes will always be
+ *          [ 0x84, 0, 0, 6 ].  The remainder will be the given IP
+ *          IPv4 address and port number.
+ *
+ *  Notes:  This function is included for completeness.  Most NBT
+ *          implementations ignore the Retarget message.
+ */
+ubyte[] RetargetResponse( ubyte[4]IPv4addr, ushort PortNum )
+  {
+  static enum ubyte[] prefix = cast(ubyte[])"\x84\0\0\x06";
+  ubyte[2] port;
+
+  port[0] = ((PortNum >> 8) & 0xff);
+  port[1] = (PortNum & 0xff);
+
+  return( join( [ prefix, IPv4addr, port ] ) );
+  } /* RetargetResponse */
