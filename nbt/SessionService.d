@@ -31,7 +31,7 @@
  * Standards: IETF RFC1001 and RFC1002 (STD#19)
  * Brief:     NBT Session Service tools
  * Version:
- *    $Id: SessionService.d; 2016-11-12 00:36:30 -0600; Christopher R. Hertel$
+ *    $Id: SessionService.d; 2016-11-27 17:53:43 -0600; Christopher R. Hertel$
  *
  * Details:
  *  The NBT Session Service provides for the establishment and maintenance
@@ -49,6 +49,11 @@
  *    <li>Retarget Session Response (10 octets)
  *    <li>Session Keepalive (4 octets)
  *  </ul>
+ *  The Session Message is a length followed by a payload.  This is the
+ *  message type used to transport higher-level protocols, particularly
+ *  SMB.  All of the other message types (all fixed-length) are used for
+ *  NBT Session Service housekeeping.
+ *
  *  NBT Session Service messages all have the same general format.  They
  *  all start with a 4-octet header followed by 0 or more octets of
  *  additional data.  The number of octets of additional data is given in
@@ -76,8 +81,35 @@
  *    /               TRAILER (Packet Type Dependent)                 /
  *    |                                                               |
  *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+</pre>
- *  <hr>
+ *
+ * Usage:
+ *  <b>Sending Outgoing Messages</b>
+ *
+ *  Two messages, the Positive Session Response and the Session Keepalive,
+ *  are invariant.  These two messages are defined as immutable constants,
+ *  each 4 bytes in length.
+ *  <ul>
+ *    <li><tt>SS_POSITIVE_RESPONSE_MSG</tt> - Positive Session Response
+ *    <li><tt>SS_SESSION_KEEPALIVE_MSG</tt> - Session Keepalive
+ *  </ul>
+ *  The Session Request, Negative Session Response, and Retarget Response
+ *  messages all need to be created using message-specific data.  See:
+ *  <ul>
+ *    <li><tt>SessionRequest()</tt>   - Create a Session Request message
+ *    <li><tt>NegativeResponse()</tt> - Session Request denied with errorcode
+ *    <li><tt>RetargetResponse()</tt> - Retarget to new IP and/or Port.
+ *  </ul>
+ *  Finally, the <tt>msgHdr()</tt> function is called to write a Session
+ *  Message header into a given 4-byte buffer.  The assumption is that a
+ *  buffer will be pre-allocated and re-used because it will be faster
+ *  than allocating a new one each time a message is composed.
+ *
+ *  <b>Receiving Incoming Messages</b>
+ *
+ *  [Work in Progress]
+ * <hr>
  */
+
 module SessionService;
 
 
@@ -119,10 +151,10 @@ enum:ubyte
 
 // Fixed Session Messages
 /// The Positive Session Response message.
-enum ubyte[] SS_POSITIVE_RESPONSE_MSG = cast(ubyte[])"\x82\0\0\0";
+immutable ubyte[4] SS_POSITIVE_RESPONSE_MSG = cast(ubyte[4])"\x82\0\0\0";
 
 /// The Session Keep Alive message.
-enum ubyte[] SS_SESSION_KEEPALIVE_MSG = cast(ubyte[])"\x85\0\0\0";
+immutable ubyte[4] SS_SESSION_KEEPALIVE_MSG = cast(ubyte[4])"\x85\0\0\0";
 
 // Subfield Masks
 private enum ubyte flgMask = 0xFE;        // FLAGS subfield mask (octet).
