@@ -29,3 +29,6 @@ docs/
 # Ignore compiled Python extensions (scripts)
 *.pyc
 *.pyo
+
+# Ignore the generated HTML docs
+nbt/*.html
