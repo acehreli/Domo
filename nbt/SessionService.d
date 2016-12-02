@@ -31,7 +31,7 @@
  * Standards: IETF RFC1001 and RFC1002 (STD#19)
  * Brief:     NBT Session Service tools
  * Version:
- *    $Id: SessionService.d; 2016-11-27 17:53:43 -0600; Christopher R. Hertel$
+ *    $Id: SessionService.d; 2016-12-02 16:30:47 -0600; Christopher R. Hertel$
  *
  * Details:
  *  The NBT Session Service provides for the establishment and maintenance
@@ -95,18 +95,70 @@
  *  The Session Request, Negative Session Response, and Retarget Response
  *  messages all need to be created using message-specific data.  See:
  *  <ul>
- *    <li><tt>SessionRequest()</tt>   - Create a Session Request message
- *    <li><tt>NegativeResponse()</tt> - Session Request denied with errorcode
- *    <li><tt>RetargetResponse()</tt> - Retarget to new IP and/or Port.
+ *    <li><tt>CreateSessReq()</tt> - Create a Session Request message
+ *    <li><tt>CreateNegResp()</tt> - Session Request denied with errorcode
+ *    <li><tt>CreateRetResp()</tt> - Retarget to new IP and/or Port
  *  </ul>
  *  Finally, the <tt>msgHdr()</tt> function is called to write a Session
  *  Message header into a given 4-byte buffer.  The assumption is that a
- *  buffer will be pre-allocated and re-used because it will be faster
- *  than allocating a new one each time a message is composed.
+ *  buffer will be pre-allocated and re-used because doing so is more
+ *  efficient than allocating a new buffer each time a message is composed.
  *
  *  <b>Receiving Incoming Messages</b>
  *
- *  [Work in Progress]
+ *  The first byte of each (framed) message will tell you which kind of
+ *  message you've received.
+ *  <dl><dt>
+ *    SS_SESSION_MESSAGE (0x00)</dt><dd>
+ *      Session message headers are 4-bytes long and represent a message
+ *      length with a maximum value of 0x0001FFFF.  The <tt>GetHdrLen()</tt>
+ *      function can be used to extract the message length.
+ *      </dd><dt>
+ *    SS_SESSION_REQUEST (0x81)</dt><dd>
+ *      A Session Request is sent by a client when it wishes to initiate an
+ *      NBT session with a server.  In modern implementations, this message
+ *      <i>should</i> be sent by the client and <i>should</i> be considered
+ *      optional by the server.  This message includes two NetBIOS names:
+ *      <ul><li>The client's Calling Name</li>
+ *          <li>The Called Name, which is the name of the service to which
+ *              the client wishes to connect.
+ *      </li></ul>
+ *      Use the <tt>ParseSessReq()</tt> function to extract these names from
+ *      the message.
+ *      </dd><dt>
+ *    SS_POSITIVE_RESPONSE (0x82)</dt><dd>
+ *      This is a fixed message that indicates that a Session Request has been
+ *      accepted.  The three bytes following the message code must all be NULs
+ *      (0x00).  You can validate this message by comparing it against
+ *      <tt>SS_POSITIVE_RESPONSE_MSG</tt>.
+ *      </dd><dt>
+ *    SS_NEGATIVE_RESPONSE (0x83)</dt><dd>
+ *      The Negative Session Response message is returned by the server when
+ *      it cannot accept a Session Request.  Use <tt>ParseNegResp()</tt> to
+ *      extract the error code.
+ *      </dd><dt>
+ *    SS_RETARGET_RESPONSE (0x84)</dt><dd>
+ *      A server may send this message to a client to indicate a forwarding
+ *      address for a particular service.  The <tt>ParseRetResp()</tt> can
+ *      be used to extract the IP address and port number from the message.
+ *      In theory, the client will retry the connection using the new values.
+ *      In practice, this message is rarely sent, and even more rarely
+ *      respected upon receipt.
+ *      </dd><dt>
+ *    SS_SESSION_KEEPALIVE (0x85)</dt><dd>
+ *      This is a fixed message used to verify that an existing, but quiet,
+ *      session is still active.  The three bytes following the message code
+ *      must all be NULs (0x00).  You can validate this message by comparing
+ *      it against <tt>SS_SESSION_KEEPALIVE_MSG</tt>.
+ *  </dd></dl>
+ *
+ * References:
+ *  <dl><dt>
+ *    [IMPCIFS]</dt><dd>
+ *      "Implementing CIFS - The Common Internet File System", Prentice Hall,
+ *      August 2003, ISBN:013047116X,<br>
+ *      <a href="http://www.ubiqx.org/cifs/">http://www.ubiqx.org/cifs/</a>
+ *  </dd></dl>
  * <hr>
  */
 
@@ -149,7 +201,7 @@ enum:ubyte
   SS_ERR_UNSPECIFIED   = 0x8F   /// Unspecified Error
   };
 
-// Fixed Session Messages
+// Fixed Session Service messages
 /// The Positive Session Response message.
 immutable ubyte[4] SS_POSITIVE_RESPONSE_MSG = cast(ubyte[4])"\x82\0\0\0";
 
@@ -157,8 +209,13 @@ immutable ubyte[4] SS_POSITIVE_RESPONSE_MSG = cast(ubyte[4])"\x82\0\0\0";
 immutable ubyte[4] SS_SESSION_KEEPALIVE_MSG = cast(ubyte[4])"\x85\0\0\0";
 
 // Subfield Masks
-private enum ubyte flgMask = 0xFE;        // FLAGS subfield mask (octet).
-private enum uint  lenMask = 0x0001FFFF;  // LENGTH subfield mask (32-bit).
+private immutable ubyte flgMask = 0xFE;       // FLAGS subfield mask (octet).
+private immutable uint  lenMask = 0x0001FFFF; // LENGTH subfield mask (32-bit).
+
+// Internal Session Service message prefixes
+private enum ubyte[] sessReqPrefix  = cast(ubyte[])"\x81\0\0\x44";
+private enum ubyte[] negRespPrefix  = cast(ubyte[])"\x83\0\0\x01";
+private enum ubyte[] retargetPrefix = cast(ubyte[])"\x84\0\0\x06";
 
 
 /* Functions ---------------------------------------------------------------- */
@@ -178,10 +235,10 @@ private enum uint  lenMask = 0x0001FFFF;  // LENGTH subfield mask (32-bit).
  *          is viewed as being 17 bits.  This is logically consistent with
  *          the original definition given in the RFC, but it works better.
  */
-ubyte getHdrFlags( ubyte[4] hdr )
+ubyte GetHdrFlags( ubyte[4] hdr )
   {
   return( hdr[1] & flgMask );
-  } /* getHdrFlags */
+  } /* GetHdrFlags */
 
 /** Extract the LENGTH from the NBT Session Service Header.
  *
@@ -191,13 +248,13 @@ ubyte getHdrFlags( ubyte[4] hdr )
  *  Output: The value of the 17-bit header LENGTH field, as an unsigned
  *          32-bit integer.
  */
-ulong getHdrLen( ubyte[4] hdr )
+ulong GetHdrLen( ubyte[4] hdr )
   {
   version( LittleEndian )
     return( bswap( *(cast(uint*)(hdr.ptr)) ) & lenMask );
   else
     return( *(cast(uint*)(hdr.ptr)) & lenMask );
-  } /* getHdrLen */
+  } /* GetHdrLen */
 
 /** Compose a correctly formatted Session Message header.
  *
@@ -225,12 +282,12 @@ void msgHdr( ubyte *bufrPtr, uint msgLen )
 /* Test a string of octets (ubytes) to see if they match the pattern
  * of an L1 encoded NBT name.
  */
-private bool L1okay( ubyte[] name )
+private bool L1okay( in ubyte[34] name )
   {
   import std.algorithm : canFind;
 
   // Ensure that we have a correctly encoded NBT name.
-  if( (name.length != 34) || ('\x20' != name[0]) || ('\0' != name[33]) )
+  if( ('\x20' != name[0]) || ('\0' != name[33]) )
     return( false );
   // Each character of <name>, except the first and last,
   // must be in the range 'A'..'P'.
@@ -241,10 +298,11 @@ private bool L1okay( ubyte[] name )
   } /* L1okay */
 
 /** Create an NBT Session Service Session Request message.
- *  Input:  CalledName  - The name of the NBT service to which the message
- *                        is addressed.<br>
- *          CallingName - The name of the NBT service or application that
- *                        is sending the session request.
+ *
+ *  Input:  Called  - The name of the NBT service to which the message is
+ *                    addressed.<br>
+ *          Calling - The name of the NBT service or application that is
+ *                    sending the session request.
  *
  *  Errors: AssertError - Thrown if either of the input paramaters does
  *                        not match the required format.
@@ -254,16 +312,37 @@ private bool L1okay( ubyte[] name )
  *          remaining bytes are the given Called and Calling names.
  *          The total length of the output should always be 72 bytes.
  */
-ubyte[] SessionRequest( ubyte[] CalledName, ubyte[] CallingName )
+ubyte[] CreateSessReq( ubyte[34] Called, ubyte[34] Calling )
   {
-  static enum ubyte[] prefix = cast(ubyte[])"\x81\0\0\x44";
+  assert( L1okay( Called ),  "Malformed 'Called' Name" );
+  assert( L1okay( Calling ), "Malformed 'Calling' Name" );
+  return( join( [ sessReqPrefix, Called, Calling ] ) );
+  } /* CreateSessReq */
 
-  assert( L1okay( CalledName ), "Malformed 'Called' Name" );
-  assert( L1okay( CallingName ), "Malformed 'Calling' Name" );
-  return( join( [ prefix, CalledName, CallingName ] ) );
-  } /* SessionRequest */
+/** Parse an NBT Session Request message.
+ *
+ *  Input:  msg     - The 72-byte NBT Session Request message to be parsed.<br>
+ *          Called  - [out] The level one encoded NetBIOS name of the
+ *                    service that the client is trying to access.<br>
+ *          Calling - [out] The level one encoded NetBIOS name by which the
+ *                    client process wishes to be known.
+ *
+ *  Notes:  The Called and Calling names are level one encoded unqualified
+ *          NetBIOS names.  You'll want to read the NBT section of [IMPCIFS]
+ *          to get a clearer idea of what this means.
+ */
+void ParseSessReq( ubyte[72] msg, out ubyte[34] Called, out ubyte[34] Calling )
+  {
+  assert( (sessReqPrefix == msg[0..4]), "Malformed Session Request message" );
+
+  Called  = msg[ 4..38];
+  Calling = msg[38..72];
+  assert( L1okay( Called  ), "Malformed 'Called' Name" );
+  assert( L1okay( Calling ), "Malformed 'Calling' Name" );
+  } /* ParseSessReq */
 
 /** Create an NBT Session Service Negative Session Response message.
+ *
  *  Input:  ErrCode - One of the five defined NBT Session Service error
  *                    codes.  Any other value is silently replaced with
  *                    SS_ERR_UNSPECIFIED.
@@ -271,20 +350,36 @@ ubyte[] SessionRequest( ubyte[] CalledName, ubyte[] CallingName )
  *  Output: An array of five ubytes.  The first four bytes will always
  *          be [ 0x83, 0, 0, 1 ].  The final byte will be the error code.
  */
-ubyte[] NegativeResponse( ubyte errCode )
+ubyte[] CreateNegResp( ubyte errCode )
   {
-  static enum ubyte[] prefix = cast(ubyte[])"\x83\0\0\x01";
-
   if( errCode < 0x80 || errCode > 0x83 )
     errCode = SS_ERR_UNSPECIFIED;
-  return( join( [ prefix, [errCode] ] ) );
-  } /* NegativeResponse */
+  return( join( [ negRespPrefix, [errCode] ] ) );
+  } /* CreateNegResp */
+
+/** Parse an NBT Negative Session Response message.
+ *
+ *  Input:  msg - The five byte NBT Negative Session Response message to be
+ *                parsed.<br>
+ *
+ *  Output: The one-byte error code included in the message.
+ *
+ *  Errors: AssertionError  - Thrown if the message header is not an NBT
+ *                            Negative Response message header.
+ */
+ubyte ParseNegResp( ubyte[5] msg )
+  {
+  assert( (negRespPrefix == msg[0..4]),
+          "Malformed Negative Response message" );
+  return( msg[4] );
+  } /* ParseNegResp */
 
 /** Create an NBT Session Service Retarget Response message.
+ *
  *  Input:  IPv4addr  - A four byte array; an IP address.
  *                      This is the IP address to which the calling node
  *                      will be redirected.  Note that NBT is does not
- *                      provide support for IPv6.
+ *                      provide support for IPv6.<br>
  *          PortNum   - The TCP port to which the calling node will be
  *                      redirected.
  *
@@ -295,13 +390,37 @@ ubyte[] NegativeResponse( ubyte errCode )
  *  Notes:  This function is included for completeness.  Most NBT
  *          implementations ignore the Retarget message.
  */
-ubyte[] RetargetResponse( ubyte[4]IPv4addr, ushort PortNum )
+ubyte[] CreateRetResp( ubyte[4] IPv4addr, ushort PortNum )
   {
-  static enum ubyte[] prefix = cast(ubyte[])"\x84\0\0\x06";
   ubyte[2] port;
 
   port[0] = ((PortNum >> 8) & 0xff);
   port[1] = (PortNum & 0xff);
+  return( join( [ retargetPrefix, IPv4addr, port ] ) );
+  } /* CreateRetResp */
 
-  return( join( [ prefix, IPv4addr, port ] ) );
-  } /* RetargetResponse */
+/** Parse an NBT Retarget Response message.
+ *
+ *  Input:  msg       - The message, which must be 10 bytes in length.<br>
+ *          IPv4addr  - [out] An IPv4 address, extracted from the message.<br>
+ *          PortNum   - [out] A port number, also extracted from the message.
+ *
+ *  Notes:  The Retarget Response was intended to allow the server to tell a
+ *          client where to go.  That is, the client is supposed to retry the
+ *          connection by contacting the returned IPv4 address at the returned
+ *          port number.  Most modern implementations, however, do not respect
+ *          the Retarget Response.
+ *
+ *  Errors: AssertionError  - Thrown if the message header is not an NBT
+ *                            Retarget Response message header.
+ */
+void ParseRetResp( ubyte[10] msg, out ubyte[4] IPv4addr, out ushort PortNum )
+  {
+  assert( (retargetPrefix == msg[0..4]),
+          "Malformed Retarget Response message" );
+
+  IPv4addr = msg[4..8];
+  PortNum  = (msg[8] << 8) + msg[9];
+  } /* ParseRetResp */
+
+/* ============================ SessionService.d ============================ */
