@@ -31,7 +31,7 @@
  * Standards: IETF RFC1001 and RFC1002 (STD#19)
  * Brief:     NBT Session Service tools
  * Version:
- *    $Id: SessionService.d; 2016-12-02 16:30:47 -0600; Christopher R. Hertel$
+ *    $Id: SessionService.d; 2016-12-18 14:00:49 -0600; Christopher R. Hertel$
  *
  * Details:
  *  The NBT Session Service provides for the establishment and maintenance
@@ -189,7 +189,7 @@ enum:ubyte
   SS_NEGATIVE_RESPONSE = 0x83,  /// NetBIOS session denied.
   SS_RETARGET_RESPONSE = 0x84,  /// NetBIOS session redirected.
   SS_SESSION_KEEPALIVE = 0x85   /// NBT session keep-alive.
-  };
+  }
 
 // Negative Response Error Codes
 enum:ubyte
@@ -199,7 +199,7 @@ enum:ubyte
   SS_ERR_NOT_PRESENT   = 0x82,  /// Called Name Not Present
   SS_ERR_INSUFFICIENT  = 0x83,  /// Insufficient Resources
   SS_ERR_UNSPECIFIED   = 0x8F   /// Unspecified Error
-  };
+  }
 
 // Fixed Session Service messages
 /// The Positive Session Response message.
@@ -209,8 +209,8 @@ immutable ubyte[4] SS_POSITIVE_RESPONSE_MSG = cast(ubyte[4])"\x82\0\0\0";
 immutable ubyte[4] SS_SESSION_KEEPALIVE_MSG = cast(ubyte[4])"\x85\0\0\0";
 
 // Subfield Masks
-private immutable ubyte flgMask = 0xFE;       // FLAGS subfield mask (octet).
-private immutable uint  lenMask = 0x0001FFFF; // LENGTH subfield mask (32-bit).
+private enum ubyte flgMask = 0xFE;        // FLAGS subfield mask (octet).
+private enum uint  lenMask = 0x0001FFFF;  // LENGTH subfield mask (32-bit).
 
 // Internal Session Service message prefixes
 private enum ubyte[] sessReqPrefix  = cast(ubyte[])"\x81\0\0\x44";
@@ -275,7 +275,7 @@ void msgHdr( ubyte *bufrPtr, uint msgLen )
   version( LittleEndian )
     msgLen = bswap( msgLen );
 
-  // Copy the length bytes into <bufr>.
+  // Copy the length bytes into the buffer.
   *cast(uint *)(bufrPtr) = msgLen;
   } /* msgHdr */
 
@@ -284,15 +284,13 @@ void msgHdr( ubyte *bufrPtr, uint msgLen )
  */
 private bool L1okay( in ubyte[34] name )
   {
-  import std.algorithm : canFind;
-
   // Ensure that we have a correctly encoded NBT name.
   if( ('\x20' != name[0]) || ('\0' != name[33]) )
     return( false );
   // Each character of <name>, except the first and last,
-  // must be in the range 'A'..'P'.
+  //  must be in the range 'A'..'P'.
   foreach( c; name[1..33] )
-    if( !( "ABCDEFGHIJKLMNOP".canFind( c ) ) )
+    if( ('A' > c) || (c > 'P') )
       return( false );
   return( true );
   } /* L1okay */
@@ -314,7 +312,7 @@ private bool L1okay( in ubyte[34] name )
  */
 ubyte[] CreateSessReq( ubyte[34] Called, ubyte[34] Calling )
   {
-  assert( L1okay( Called ),  "Malformed 'Called' Name" );
+  assert( L1okay( Called  ), "Malformed 'Called' Name" );
   assert( L1okay( Calling ), "Malformed 'Calling' Name" );
   return( join( [ sessReqPrefix, Called, Calling ] ) );
   } /* CreateSessReq */
